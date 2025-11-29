@@ -2,6 +2,8 @@
 
 > A professional web interface for the Tongyi-MAI Z-Image-Turbo model — lightning-fast text-to-image generation with 6B parameters.
 
+![Z-Image-Turbo Interface](assets/projectScreenshot.png)
+
 ![Z-Image-Turbo](https://img.shields.io/badge/Model-Z--Image--Turbo-blue) ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 
 ---
@@ -11,7 +13,7 @@
 ### Prerequisites
 - Python 3.8+
 - Node.js 16+
-- 8GB+ VRAM (or CPU offload for lower VRAM)
+- 8GB+ VRAM recommended (or use CPU offload)
 
 ### Installation
 
@@ -41,18 +43,20 @@
 
 ### Running the Application
 
-**Terminal 1 - Backend:**
+**Terminal 1 - Start Backend:**
 ```bash
-.\venv\Scripts\python.exe backend/main.py
+.\venv\Scripts\activate  # or source venv/bin/activate on Linux/Mac
+cd backend
+python main.py
 ```
 
-**Terminal 2 - Frontend:**
+**Terminal 2 - Start Frontend:**
 ```bash
 cd frontend
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+Open **`http://localhost:5173`** in your browser and start generating!
 
 ---
 
