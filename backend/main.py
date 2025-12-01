@@ -173,10 +173,12 @@ async def load_pipeline():
         raise e
 
 async def get_pipeline():
-    """Get model pipeline (lazy loading)"""
+    """Get model pipeline (pre-loaded at startup)"""
     global pipe
-    if pipe is None:
-        await load_pipeline()
+    # Model is now pre-loaded at startup, this function just returns the pipeline
+    # Original lazy loading code commented out for reference:
+    # if pipe is None:
+    #     await load_pipeline()
     return pipe
 
 def unload_pipeline():
@@ -336,6 +338,15 @@ def main():
     )
     
     args = parser.parse_args()
+    
+    # Load model at startup
+    print("Pre-loading model at startup...")
+    try:
+        asyncio.run(load_pipeline())
+        print("Model loaded successfully at startup")
+    except Exception as e:
+        print(f"Failed to load model at startup: {e}")
+        print("Server will continue to run but model loading will be attempted on first request")
     
     # Create application
     app = create_app()
