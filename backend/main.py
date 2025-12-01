@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 try:
-    from diffusers import ZImagePipeline
+    from diffusers.pipelines.z_image.pipeline_z_image import ZImagePipeline
 except ImportError:
     # Fallback or mock for development if diffusers is not updated yet
     print("ZImagePipeline not found in diffusers. Please install from source.")
@@ -12,6 +12,7 @@ import io
 import base64
 from fastapi.middleware.cors import CORSMiddleware
 import os
+from pathlib import Path
 
 app = FastAPI()
 
@@ -65,19 +66,42 @@ def get_pipeline():
             
         print(f"Loading model {model_config['model_id']}...")
         
-        if model_config['cache_dir']:
-            print(f"Using cache directory: {model_config['cache_dir']}")
-
+        # Set model directory to /model
+        model_dir = Path("/model")
+        model_id = model_config['model_id']
+        
+        # Create model subdirectory based on model_id
+        # Replace special characters in model_id to create valid directory name
+        safe_model_id = model_id.replace("/", "_").replace("-", "_")
+        model_subdir = model_dir / safe_model_id
+        
+        print(f"Using model directory: {model_subdir}")
+        
+        # Check if model exists
+        if not model_subdir.exists():
+            print(f"Model not found at {model_subdir}. Downloading...")
+            try:
+                from modelscope.hub.snapshot_download import snapshot_download
+                # Download model to the specific subdirectory
+                snapshot_download(
+                    model_id=model_id,
+                    local_dir=str(model_subdir)
+                )
+                print(f"Model downloaded successfully to {model_subdir}")
+            except Exception as e:
+                print(f"Error downloading model: {e}")
+                raise e
+        
         try:
             # Check for CUDA
             device = "cuda" if torch.cuda.is_available() else "cpu"
             dtype = torch.bfloat16 if device == "cuda" else torch.float32
             
+            # Load model from the local directory
             pipe = ZImagePipeline.from_pretrained(
-                model_config['model_id'],
+                str(model_subdir),
                 torch_dtype=dtype,
-                low_cpu_mem_usage=False,
-                cache_dir=model_config['cache_dir']
+                low_cpu_mem_usage=False
             )
             
             if model_config.get("cpu_offload", False) and device == "cuda":
