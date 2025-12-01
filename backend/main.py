@@ -1,5 +1,15 @@
+import json
+import os
+import io
+import base64
+import argparse
+from pathlib import Path
+
+import torch
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
 try:
     from diffusers.pipelines.z_image.pipeline_z_image import ZImagePipeline
 except ImportError:
@@ -7,140 +17,136 @@ except ImportError:
     print("ZImagePipeline not found in diffusers. Please install from source.")
     ZImagePipeline = None
 
-import torch
-import io
-import base64
-from fastapi.middleware.cors import CORSMiddleware
-import os
-from pathlib import Path
 
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-import json
+# ============================================================================
+# Configuration Management
+# ============================================================================
 
 CONFIG_FILE = "config.json"
 
 def load_config():
+    """Load configuration file"""
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, "r") as f:
+            with open(CONFIG_FILE, "r", encoding='utf8') as f:
                 return json.load(f)
         except Exception as e:
             print(f"Error loading config: {e}")
+    
     return {
         "cache_dir": None,
         "model_id": "Tongyi-MAI/Z-Image-Turbo"
     }
 
 def save_config(config):
+    """Save configuration file"""
     try:
-        with open(CONFIG_FILE, "w") as f:
+        with open(CONFIG_FILE, "w", encoding='utf8') as f:
             json.dump(config, f, indent=4)
     except Exception as e:
         print(f"Error saving config: {e}")
 
-import psutil
-import time
 
-# Global configuration
+# ============================================================================
+# Model Management
+# ============================================================================
+
+# Global variables
 model_config = load_config()
 if "cpu_offload" not in model_config:
     model_config["cpu_offload"] = False
-
-# Global variable for the pipeline
 pipe = None
 
+def get_model_directory():
+    """Get model storage directory"""
+    model_dir = Path(__file__).resolve().parent.parent.parent / "models"
+    model_id = model_config.get('model_id', "Tongyi-MAI/Z-Image-Turbo")
+    safe_model_id = model_id.replace("/", "_").replace("-", "_")
+    return model_dir / safe_model_id
+
+def download_model(model_id, model_subdir):
+    """Download model"""
+    print(f"Model not found at {model_subdir}. Downloading...")
+    try:
+        from modelscope.hub.snapshot_download import snapshot_download
+        snapshot_download(
+            model_id=model_id,
+            local_dir=str(model_subdir)
+        )
+        print(f"Model downloaded successfully to {model_subdir}")
+    except Exception as e:
+        print(f"Error downloading model: {e}")
+        raise e
+
+def load_pipeline():
+    """Load model pipeline"""
+    global pipe
+    
+    if ZImagePipeline is None:
+        raise HTTPException(status_code=500, detail="ZImagePipeline class not available. Install diffusers from source.")
+    
+    model_id = model_config.get('model_id', "Tongyi-MAI/Z-Image-Turbo")
+    print(f"Loading model {model_id}...")
+    
+    model_subdir = get_model_directory()
+    print(f"Using model directory: {model_subdir}")
+    
+    # Check if model exists
+    if not model_subdir.exists():
+        download_model(model_id, model_subdir)
+    
+    try:
+        # Check device
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        dtype = torch.bfloat16 if device == "cuda" else torch.float32
+        
+        # Load model
+        pipe = ZImagePipeline.from_pretrained(
+            str(model_subdir),
+            torch_dtype=dtype,
+            low_cpu_mem_usage=False
+        )
+        
+        # Configure device
+        if model_config.get("cpu_offload", False) and device == "cuda":
+            print("Enabling CPU Offload")
+            pipe.enable_model_cpu_offload()
+        else:
+            pipe.to(device)
+            
+        print(f"Model loaded on {device}")
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        raise e
+
 def get_pipeline():
+    """Get model pipeline (lazy loading)"""
     global pipe
     if pipe is None:
-        if ZImagePipeline is None:
-            raise HTTPException(status_code=500, detail="ZImagePipeline class not available. Install diffusers from source.")
-            
-        print(f"Loading model {model_config['model_id']}...")
-        
-        # Set model directory to /model
-        model_dir = Path("/model")
-        model_id = model_config['model_id']
-        
-        # Create model subdirectory based on model_id
-        # Replace special characters in model_id to create valid directory name
-        safe_model_id = model_id.replace("/", "_").replace("-", "_")
-        model_subdir = model_dir / safe_model_id
-        
-        print(f"Using model directory: {model_subdir}")
-        
-        # Check if model exists
-        if not model_subdir.exists():
-            print(f"Model not found at {model_subdir}. Downloading...")
-            try:
-                from modelscope.hub.snapshot_download import snapshot_download
-                # Download model to the specific subdirectory
-                snapshot_download(
-                    model_id=model_id,
-                    local_dir=str(model_subdir)
-                )
-                print(f"Model downloaded successfully to {model_subdir}")
-            except Exception as e:
-                print(f"Error downloading model: {e}")
-                raise e
-        
-        try:
-            # Check for CUDA
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            dtype = torch.bfloat16 if device == "cuda" else torch.float32
-            
-            # Load model from the local directory
-            pipe = ZImagePipeline.from_pretrained(
-                str(model_subdir),
-                torch_dtype=dtype,
-                low_cpu_mem_usage=False
-            )
-            
-            if model_config.get("cpu_offload", False) and device == "cuda":
-                print("Enabling CPU Offload")
-                pipe.enable_model_cpu_offload()
-            else:
-                pipe.to(device)
-                
-            print(f"Model loaded on {device}")
-        except Exception as e:
-            print(f"Error loading model: {e}")
-            raise e
+        load_pipeline()
     return pipe
 
+def unload_pipeline():
+    """Unload model pipeline"""
+    global pipe
+    if pipe is not None:
+        pipe = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        print("Model pipeline unloaded")
+
+
+# ============================================================================
+# Request Models
+# ============================================================================
+
 class SettingsRequest(BaseModel):
+    """Settings request model"""
     cache_dir: str
     cpu_offload: bool = False
 
-@app.post("/settings/model-path")
-async def set_model_path(req: SettingsRequest):
-    global pipe
-    try:
-        if req.cache_dir and not os.path.exists(req.cache_dir):
-            os.makedirs(req.cache_dir, exist_ok=True)
-        
-        model_config["cache_dir"] = req.cache_dir
-        model_config["cpu_offload"] = req.cpu_offload
-        save_config(model_config)
-        # Force reload of the pipeline
-        pipe = None
-        return {"status": "success", "message": "Settings saved. Model will reload on next generation."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/settings")
-async def get_settings():
-    return model_config
-
 class GenerateRequest(BaseModel):
+    """Generation request model"""
     prompt: str
     height: int = 1024
     width: int = 1024
@@ -148,23 +154,52 @@ class GenerateRequest(BaseModel):
     guidance_scale: float = 0.0
     seed: int = -1
 
-@app.post("/generate")
-def generate_image(req: GenerateRequest):
+
+# ============================================================================
+# API Endpoint Handler Functions
+# ============================================================================
+
+def handle_set_settings(req: SettingsRequest):
+    """Handle settings update request"""
+    try:
+        if req.cache_dir and not os.path.exists(req.cache_dir):
+            os.makedirs(req.cache_dir, exist_ok=True)
+        
+        model_config["cache_dir"] = req.cache_dir
+        model_config["cpu_offload"] = req.cpu_offload
+        save_config(model_config)
+        
+        # Force model reload
+        unload_pipeline()
+        
+        return {"status": "success", "message": "Settings saved. Model will reload on next generation."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def handle_get_settings():
+    """Handle get settings request"""
+    return model_config
+
+def handle_generate_image(req: GenerateRequest):
+    """Handle image generation request"""
     # Validate dimensions
     if req.height % 16 != 0 or req.width % 16 != 0:
         raise HTTPException(status_code=400, detail="Height and Width must be divisible by 16.")
-
+    
     try:
         pipeline = get_pipeline()
         
+        if pipeline is None:
+            raise ValueError('Cannot get pipeline.')
+        
+        # Configure generator
         device = "cuda" if torch.cuda.is_available() else "cpu"
         generator = None
         if req.seed != -1:
             generator = torch.Generator(device).manual_seed(req.seed)
         
-        # Run inference
+        # Execute inference
         print(f"Generating with prompt: {req.prompt}")
-        
         image = pipeline(
             prompt=req.prompt,
             height=req.height,
@@ -184,10 +219,71 @@ def generate_image(req: GenerateRequest):
         print(f"Error generating image: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/health")
-def health():
+def handle_health_check():
+    """Handle health check request"""
     return {"status": "ok"}
 
-if __name__ == "__main__":
+
+# ============================================================================
+# FastAPI Application
+# ============================================================================
+
+def create_app():
+    """Create FastAPI application"""
+    app = FastAPI()
+    
+    # Configure CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
+    # Register routes
+    app.post("/settings/model-path")(handle_set_settings)
+    app.get("/settings")(handle_get_settings)
+    app.post("/generate")(handle_generate_image)
+    app.get("/health")(handle_health_check)
+    
+    return app
+
+
+# ============================================================================
+# Main Function
+# ============================================================================
+
+def main():
+    """Main function"""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Z-Image Turbo WebUI Backend")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to run the server on (default: 8000)"
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="0.0.0.0",
+        help="Host to bind the server to (default: 0.0.0.0)"
+    )
+    
+    args = parser.parse_args()
+    
+    # Create application
+    app = create_app()
+    
+    # Run application
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=args.host, port=args.port)
+
+
+# ============================================================================
+# Program Entry Point
+# ============================================================================
+
+if __name__ == "__main__":
+    main()
