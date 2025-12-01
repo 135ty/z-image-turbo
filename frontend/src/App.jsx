@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 import {
   Zap,
@@ -33,6 +33,12 @@ function App() {
     height: 1024,
     seed: -1
   })
+  const [modelStatus, setModelStatus] = useState({
+    status: 'ready', // ready, loading, success, error
+    message: '系统就绪',
+    device: null
+  })
+  const ws = useRef(null)
 
   // Fetch initial settings
   useEffect(() => {
@@ -42,6 +48,55 @@ function App() {
         if (data.cache_dir) setModelPath(data.cache_dir)
       })
       .catch(err => console.error("Failed to fetch settings", err))
+  }, [])
+
+  // WebSocket connection
+  useEffect(() => {
+    ws.current = new WebSocket('ws://localhost:8000/ws')
+    
+    ws.current.onopen = () => {
+      console.log('WebSocket connected')
+    }
+    
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      if (data.type === 'notification') {
+        if (data.notification_type === 'info') {
+          setModelStatus({
+            status: 'loading',
+            message: data.message,
+            device: null
+          })
+        } else if (data.notification_type === 'success') {
+          const deviceMatch = data.message.match(/设备: (\w+)/)
+          setModelStatus({
+            status: 'success',
+            message: '模型加载成功',
+            device: deviceMatch ? deviceMatch[1] : null
+          })
+        } else if (data.notification_type === 'error') {
+          setModelStatus({
+            status: 'error',
+            message: data.message,
+            device: null
+          })
+        }
+      }
+    }
+    
+    ws.current.onerror = (error) => {
+      console.error('WebSocket error:', error)
+    }
+    
+    ws.current.onclose = () => {
+      console.log('WebSocket disconnected')
+    }
+    
+    return () => {
+      if (ws.current) {
+        ws.current.close()
+      }
+    }
   }, [])
 
   const generate = async () => {
@@ -564,6 +619,42 @@ function App() {
           </div>
         </div>
 
+        {/* Model Status */}
+        <div style={{
+          padding: '16px 24px',
+          borderTop: '1px solid var(--border)',
+          backgroundColor: 'var(--bg-tertiary)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+            <div style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: modelStatus.status === 'loading' ? '#eab308' :
+                              modelStatus.status === 'success' ? '#22c55e' :
+                              modelStatus.status === 'error' ? '#ef4444' : '#22c55e',
+              boxShadow: modelStatus.status === 'loading' ? '0 0 8px rgba(234, 179, 8, 0.5)' :
+                        modelStatus.status === 'success' ? '0 0 8px rgba(34, 197, 94, 0.5)' :
+                        modelStatus.status === 'error' ? '0 0 8px rgba(239, 68, 68, 0.5)' :
+                        '0 0 8px rgba(34, 197, 94, 0.5)',
+              animation: modelStatus.status === 'loading' ? 'pulse 1.5s infinite' : 'none'
+            }}></div>
+            <span style={{
+              color: modelStatus.status === 'error' ? '#ef4444' : 'var(--text-secondary)'
+            }}>
+              {modelStatus.message}
+            </span>
+            {modelStatus.device && (
+              <span style={{
+                color: 'var(--text-muted)',
+                fontFamily: 'monospace'
+              }}>
+                ({modelStatus.device})
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* Sidebar Footer */}
         <div style={{
           padding: '16px 24px',
@@ -831,6 +922,18 @@ function App() {
       <style>{`
         .image-container:hover .image-overlay {
           opacity: 1 !important;
+        }
+        
+        @keyframes pulse {
+          0% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+          100% {
+            opacity: 1;
+          }
         }
       `}</style>
       </div>

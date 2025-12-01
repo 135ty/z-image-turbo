@@ -3,10 +3,12 @@ import os
 import io
 import base64
 import argparse
+import asyncio
 from pathlib import Path
+from typing import List
 
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -57,6 +59,49 @@ if "cpu_offload" not in model_config:
     model_config["cpu_offload"] = False
 pipe = None
 
+# WebSocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_personal_message(self, message: dict, websocket: WebSocket):
+        try:
+            await websocket.send_json(message)
+        except:
+            pass
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except:
+                pass
+
+manager = ConnectionManager()
+
+# Notification types
+NOTIFICATION_INFO = "info"
+NOTIFICATION_SUCCESS = "success"
+NOTIFICATION_ERROR = "error"
+NOTIFICATION_WARNING = "warning"
+
+async def send_notification(notification_type: str, message: str, persistent: bool = False):
+    """Send notification to all connected clients"""
+    notification = {
+        "type": "notification",
+        "notification_type": notification_type,
+        "message": message,
+        "persistent": persistent
+    }
+    await manager.broadcast(notification)
+
 def get_model_directory():
     """Get model storage directory"""
     model_dir = Path(__file__).resolve().parent.parent.parent / "models"
@@ -78,7 +123,7 @@ def download_model(model_id, model_subdir):
         print(f"Error downloading model: {e}")
         raise e
 
-def load_pipeline():
+async def load_pipeline():
     """Load model pipeline"""
     global pipe
     
@@ -88,11 +133,15 @@ def load_pipeline():
     model_id = model_config.get('model_id', "Tongyi-MAI/Z-Image-Turbo")
     print(f"Loading model {model_id}...")
     
+    # Send loading notification
+    await send_notification(NOTIFICATION_INFO, f"开始加载模型 {model_id}...", persistent=False)
+    
     model_subdir = get_model_directory()
     print(f"Using model directory: {model_subdir}")
     
     # Check if model exists
     if not model_subdir.exists():
+        await send_notification(NOTIFICATION_INFO, "模型未找到，开始下载...", persistent=False)
         download_model(model_id, model_subdir)
     
     try:
@@ -115,15 +164,19 @@ def load_pipeline():
             pipe.to(device)
             
         print(f"Model loaded on {device}")
+        # Send success notification (persistent)
+        await send_notification(NOTIFICATION_SUCCESS, f"模型加载成功！设备: {device}", persistent=True)
     except Exception as e:
         print(f"Error loading model: {e}")
+        # Send error notification (persistent)
+        await send_notification(NOTIFICATION_ERROR, f"模型加载失败: {str(e)}", persistent=True)
         raise e
 
-def get_pipeline():
+async def get_pipeline():
     """Get model pipeline (lazy loading)"""
     global pipe
     if pipe is None:
-        load_pipeline()
+        await load_pipeline()
     return pipe
 
 def unload_pipeline():
@@ -180,14 +233,14 @@ def handle_get_settings():
     """Handle get settings request"""
     return model_config
 
-def handle_generate_image(req: GenerateRequest):
+async def handle_generate_image(req: GenerateRequest):
     """Handle image generation request"""
     # Validate dimensions
     if req.height % 16 != 0 or req.width % 16 != 0:
         raise HTTPException(status_code=400, detail="Height and Width must be divisible by 16.")
     
     try:
-        pipeline = get_pipeline()
+        pipeline = await get_pipeline()
         
         if pipeline is None:
             raise ValueError('Cannot get pipeline.')
@@ -228,6 +281,16 @@ def handle_health_check():
 # FastAPI Application
 # ============================================================================
 
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time notifications"""
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
 def create_app():
     """Create FastAPI application"""
     app = FastAPI()
@@ -246,6 +309,7 @@ def create_app():
     app.get("/settings")(handle_get_settings)
     app.post("/generate")(handle_generate_image)
     app.get("/health")(handle_health_check)
+    app.websocket("/ws")(websocket_endpoint)
     
     return app
 
