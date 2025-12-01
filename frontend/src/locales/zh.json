@@ -1,0 +1,74 @@
+{
+  "app": {
+    "title": "Z-Image-Turbo",
+    "subtitle": "6B 参数",
+    "workspace": "工作区",
+    "newGeneration": "新创作"
+  },
+  "settings": {
+    "title": "应用设置",
+    "modelCacheDirectory": "模型缓存目录",
+    "modelCachePlaceholder": "/path/to/custom/cache",
+    "modelCacheHelp": "留空以使用默认的 Hugging Face 缓存。更改此设置将触发模型重新加载。",
+    "cancel": "取消",
+    "saveChanges": "保存更改",
+    "saveSuccess": "设置已保存。模型将在下次生成时重新加载。",
+    "saveError": "保存设置时出错："
+  },
+  "parameters": {
+    "title": "参数",
+    "inferenceSteps": "推理步数",
+    "guidanceScale": "引导比例",
+    "dimensions": "尺寸",
+    "seed": "随机种子",
+    "randomSeed": "随机 (-1)",
+    "resetRandom": "重置"
+  },
+  "aspectRatios": {
+    "square": "正方形",
+    "portrait": "竖屏",
+    "landscape": "横屏",
+    "wide": "宽屏"
+  },
+  "resolutions": {
+    "select": "选择分辨率...",
+    "tiny": "微小 / 低分辨率",
+    "standard": "标准",
+    "widescreen": "宽屏 (16:9)",
+    "tiny256": "256 x 256 (微小)",
+    "tiny288": "512 x 288 (288p)",
+    "tiny360": "640 x 352 (360p 近似)",
+    "sd512": "512 x 512 (SD)",
+    "sd768": "768 x 768 (SD+)",
+    "xl1024": "1024 x 1024 (XL)",
+    "wide480": "848 x 480 (480p)",
+    "wide720": "1280 x 720 (720p)",
+    "wide1080": "1920 x 1088 (1080p)"
+  },
+  "modelStatus": {
+    "ready": "系统就绪",
+    "loading": "模型加载中...",
+    "success": "模型加载成功",
+    "error": "模型加载失败"
+  },
+  "systemStatus": {
+    "generating": "生成中...",
+    "systemReady": "系统就绪"
+  },
+  "image": {
+    "placeholder": "输入提示词开始创作",
+    "download": "下载",
+    "fullscreen": "全屏查看",
+    "regenerate": "使用相同设置重新生成"
+  },
+  "prompt": {
+    "placeholder": "描述你的想象...",
+    "generate": "生成",
+    "generating": "生成中..."
+  },
+  "github": "在 GitHub 上查看",
+  "settingsBtn": "设置",
+  "width": "宽度",
+  "height": "高度",
+  "px": "像素"
+}

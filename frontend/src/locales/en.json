@@ -1,0 +1,74 @@
+{
+  "app": {
+    "title": "Z-Image-Turbo",
+    "subtitle": "6B parameters",
+    "workspace": "Workspace",
+    "newGeneration": "New Generation"
+  },
+  "settings": {
+    "title": "Application Settings",
+    "modelCacheDirectory": "Model Cache Directory",
+    "modelCachePlaceholder": "/path/to/custom/cache",
+    "modelCacheHelp": "Leave empty to use default Hugging Face cache. Changing this will trigger a model reload.",
+    "cancel": "Cancel",
+    "saveChanges": "Save Changes",
+    "saveSuccess": "Settings saved. Model will reload on next generation.",
+    "saveError": "Error saving settings: "
+  },
+  "parameters": {
+    "title": "Parameters",
+    "inferenceSteps": "Inference Steps",
+    "guidanceScale": "Guidance Scale",
+    "dimensions": "Dimensions",
+    "seed": "Seed",
+    "randomSeed": "Random (-1)",
+    "resetRandom": "RND"
+  },
+  "aspectRatios": {
+    "square": "Square",
+    "portrait": "Portrait",
+    "landscape": "Land.",
+    "wide": "Wide"
+  },
+  "resolutions": {
+    "select": "Select Resolution...",
+    "tiny": "Tiny / Low Res",
+    "standard": "Standard",
+    "widescreen": "Widescreen (16:9)",
+    "tiny256": "256 x 256 (Tiny)",
+    "tiny288": "512 x 288 (288p)",
+    "tiny360": "640 x 352 (360p approx)",
+    "sd512": "512 x 512 (SD)",
+    "sd768": "768 x 768 (SD+)",
+    "xl1024": "1024 x 1024 (XL)",
+    "wide480": "848 x 480 (480p)",
+    "wide720": "1280 x 720 (720p)",
+    "wide1080": "1920 x 1088 (1080p)"
+  },
+  "modelStatus": {
+    "ready": "System Ready",
+    "loading": "Loading model...",
+    "success": "Model loaded successfully",
+    "error": "Model loading failed"
+  },
+  "systemStatus": {
+    "generating": "Generating...",
+    "systemReady": "System Ready"
+  },
+  "image": {
+    "placeholder": "Enter a prompt to begin creation",
+    "download": "Download",
+    "fullscreen": "View Fullscreen",
+    "regenerate": "Regenerate with same settings"
+  },
+  "prompt": {
+    "placeholder": "Describe your imagination...",
+    "generate": "Generate",
+    "generating": "Generating..."
+  },
+  "github": "View on GitHub",
+  "settingsBtn": "Settings",
+  "width": "Width",
+  "height": "Height",
+  "px": "px"
+}

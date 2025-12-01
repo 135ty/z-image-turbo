@@ -16,11 +16,14 @@ import {
   CheckCircle,
   AlertCircle,
   AlertTriangle,
-  Info
+  Info,
+  Globe
 } from 'lucide-react'
 import './App.css'
+import { useTranslation } from './LanguageContext.jsx'
 
 function App() {
+  const { t, language, toggleLanguage } = useTranslation()
   const [prompt, setPrompt] = useState('')
   const [image, setImage] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -35,7 +38,7 @@ function App() {
   })
   const [modelStatus, setModelStatus] = useState({
     status: 'ready', // ready, loading, success, error
-    message: '系统就绪',
+    message: t('modelStatus.ready'),
     device: null
   })
   const ws = useRef(null)
@@ -71,7 +74,7 @@ function App() {
           const deviceMatch = data.message.match(/设备: (\w+)/)
           setModelStatus({
             status: 'success',
-            message: '模型加载成功',
+            message: t('modelStatus.success'),
             device: deviceMatch ? deviceMatch[1] : null
           })
         } else if (data.notification_type === 'error') {
@@ -117,7 +120,7 @@ function App() {
       }
     } catch (e) {
       console.error(e)
-      showToast('Error generating image. Check backend console.', 'error')
+      showToast(t('prompt.generatingError', 'Error generating image. Check backend console.'), 'error')
     } finally {
       setLoading(false)
     }
@@ -132,12 +135,12 @@ function App() {
       })
       if (res.ok) {
         setShowSettings(false)
-        showToast('Settings saved. Model will reload on next generation.', 'success')
+        showToast(t('settings.saveSuccess'), 'success')
       } else {
         throw new Error('Failed to save settings')
       }
     } catch (e) {
-      showToast('Error saving settings: ' + e.message, 'error')
+      showToast(t('settings.saveError') + e.message, 'error')
     }
   }
 
@@ -237,7 +240,7 @@ function App() {
               backgroundColor: 'var(--bg-tertiary)'
             }}>
               <h2 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Settings size={20} /> Application Settings
+                <Settings size={20} /> {t('settings.title')}
               </h2>
               <button onClick={() => setShowSettings(false)} style={{
                 padding: '8px',
@@ -251,7 +254,7 @@ function App() {
             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>
-                  Model Cache Directory
+                  {t('settings.modelCacheDirectory')}
                 </label>
                 <div style={{ display: 'flex', gap: '8px', position: 'relative' }}>
                   <div style={{ position: 'relative', flex: 1 }}>
@@ -266,13 +269,13 @@ function App() {
                       type="text"
                       value={modelPath}
                       onChange={(e) => setModelPath(e.target.value)}
-                      placeholder="/path/to/custom/cache"
+                      placeholder={t('settings.modelCachePlaceholder')}
                       style={{ width: '100%', paddingLeft: '40px' }}
                     />
                   </div>
                 </div>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Leave empty to use default Hugging Face cache. Changing this will trigger a model reload.
+                  {t('settings.modelCacheHelp')}
                 </p>
               </div>
             </div>
@@ -293,7 +296,7 @@ function App() {
                   color: 'var(--text-secondary)'
                 }}
               >
-                Cancel
+                {t('settings.cancel')}
               </button>
               <button
                 onClick={saveSettings}
@@ -309,7 +312,7 @@ function App() {
                   gap: '8px'
                 }}
               >
-                <Save size={16} /> Save Changes
+                <Save size={16} /> {t('settings.saveChanges')}
               </button>
             </div>
           </div>
@@ -345,17 +348,43 @@ function App() {
                 <Zap style={{ width: '20px', height: '20px', color: 'black' }} fill="black" />
               </div>
               <div>
-                <h1 style={{ fontWeight: 700, fontSize: '18px', lineHeight: 1 }}>Z-Image-Turbo</h1>
+                <h1 style={{ fontWeight: 700, fontSize: '18px', lineHeight: 1 }}>{t('app.title')}</h1>
                 <span style={{
                   fontSize: '10px',
                   fontWeight: 700,
                   color: 'var(--text-secondary)',
                   textTransform: 'uppercase',
                   letterSpacing: '1.5px'
-                }}>6B parameters</span>
+                }}>{t('app.subtitle')}</span>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={toggleLanguage}
+                style={{
+                  padding: '8px',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-secondary)',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  minWidth: '32px'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'
+                  e.currentTarget.style.color = 'white'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.color = 'var(--text-secondary)'
+                }}
+                title={language === 'zh' ? 'Switch to English' : '切换到中文'}
+              >
+                {language === 'zh' ? '中' : 'EN'}
+              </button>
               <a
                 href="https://github.com/Aaryan-Kapoor/z-image-turbo"
                 target="_blank"
@@ -377,7 +406,7 @@ function App() {
                   e.currentTarget.style.backgroundColor = 'transparent'
                   e.currentTarget.style.color = 'var(--text-secondary)'
                 }}
-                title="View on GitHub"
+                title={t('github')}
               >
                 <Github size={18} />
               </a>
@@ -397,7 +426,7 @@ function App() {
                   e.currentTarget.style.backgroundColor = 'transparent'
                   e.currentTarget.style.color = 'var(--text-secondary)'
                 }}
-                title="Settings"
+                title={t('settingsBtn')}
               >
                 <Settings size={18} />
               </button>
@@ -418,14 +447,14 @@ function App() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
               <Sparkles size={14} />
               <h2 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                Parameters
+                {t('parameters.title')}
               </h2>
             </div>
 
             {/* Inference Steps */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '14px', fontWeight: 500 }}>Inference Steps</label>
+                <label style={{ fontSize: '14px', fontWeight: 500 }}>{t('parameters.inferenceSteps')}</label>
                 <span style={{
                   fontSize: '12px',
                   fontFamily: 'monospace',
@@ -447,7 +476,7 @@ function App() {
             {/* Guidance Scale */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '14px', fontWeight: 500 }}>Guidance Scale</label>
+                <label style={{ fontSize: '14px', fontWeight: 500 }}>{t('parameters.guidanceScale')}</label>
                 <span style={{
                   fontSize: '12px',
                   fontFamily: 'monospace',
@@ -470,7 +499,7 @@ function App() {
             {/* Dimensions */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '14px', fontWeight: 500 }}>Dimensions</label>
+                <label style={{ fontSize: '14px', fontWeight: 500 }}>{t('parameters.dimensions')}</label>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   {settings.width} x {settings.height}
                 </span>
@@ -479,10 +508,10 @@ function App() {
               {/* Aspect Ratio Presets */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                 {[
-                  { label: 'Square', ratio: '1:1', w: 1024, h: 1024 },
-                  { label: 'Portrait', ratio: '3:4', w: 896, h: 1152 },
-                  { label: 'Land.', ratio: '4:3', w: 1152, h: 896 },
-                  { label: 'Wide', ratio: '16:9', w: 1344, h: 768 }
+                  { label: t('aspectRatios.square'), ratio: '1:1', w: 1024, h: 1024 },
+                  { label: t('aspectRatios.portrait'), ratio: '3:4', w: 896, h: 1152 },
+                  { label: t('aspectRatios.landscape'), ratio: '4:3', w: 1152, h: 896 },
+                  { label: t('aspectRatios.wide'), ratio: '16:9', w: 1344, h: 768 }
                 ].map(preset => (
                   <button
                     key={preset.label}
@@ -531,21 +560,21 @@ function App() {
                     width: '100%'
                   }}
                 >
-                  <option value="custom" disabled>Select Resolution...</option>
-                  <optgroup label="Tiny / Low Res">
-                    <option value="256x256">256 x 256 (Tiny)</option>
-                    <option value="512x288">512 x 288 (288p)</option>
-                    <option value="640x352">640 x 352 (360p approx)</option>
+                  <option value="custom" disabled>{t('resolutions.select')}</option>
+                  <optgroup label={t('resolutions.tiny')}>
+                    <option value="256x256">{t('resolutions.tiny256')}</option>
+                    <option value="512x288">{t('resolutions.tiny288')}</option>
+                    <option value="640x352">{t('resolutions.tiny360')}</option>
                   </optgroup>
-                  <optgroup label="Standard">
-                    <option value="512x512">512 x 512 (SD)</option>
-                    <option value="768x768">768 x 768 (SD+)</option>
-                    <option value="1024x1024">1024 x 1024 (XL)</option>
+                  <optgroup label={t('resolutions.standard')}>
+                    <option value="512x512">{t('resolutions.sd512')}</option>
+                    <option value="768x768">{t('resolutions.sd768')}</option>
+                    <option value="1024x1024">{t('resolutions.xl1024')}</option>
                   </optgroup>
-                  <optgroup label="Widescreen (16:9)">
-                    <option value="848x480">848 x 480 (480p)</option>
-                    <option value="1280x720">1280 x 720 (720p)</option>
-                    <option value="1920x1088">1920 x 1088 (1080p)</option>
+                  <optgroup label={t('resolutions.widescreen')}>
+                    <option value="848x480">{t('resolutions.wide480')}</option>
+                    <option value="1280x720">{t('resolutions.wide720')}</option>
+                    <option value="1920x1088">{t('resolutions.wide1080')}</option>
                   </optgroup>
                 </select>
               </div>
@@ -555,8 +584,8 @@ function App() {
                 {/* Width Slider */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Width</span>
-                    <span style={{ fontSize: '11px', fontFamily: 'monospace' }}>{settings.width}px</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t('width')}</span>
+                    <span style={{ fontSize: '11px', fontFamily: 'monospace' }}>{settings.width}{t('px')}</span>
                   </div>
                   <input
                     type="range"
@@ -571,8 +600,8 @@ function App() {
                 {/* Height Slider */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Height</span>
-                    <span style={{ fontSize: '11px', fontFamily: 'monospace' }}>{settings.height}px</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t('height')}</span>
+                    <span style={{ fontSize: '11px', fontFamily: 'monospace' }}>{settings.height}{t('px')}</span>
                   </div>
                   <input
                     type="range"
@@ -588,11 +617,11 @@ function App() {
 
             {/* Seed */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <label style={{ fontSize: '14px', fontWeight: 500 }}>Seed</label>
+              <label style={{ fontSize: '14px', fontWeight: 500 }}>{t('parameters.seed')}</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="number"
-                  placeholder="Random (-1)"
+                  placeholder={t('parameters.randomSeed')}
                   value={settings.seed}
                   onChange={e => setSettings({ ...settings, seed: parseInt(e.target.value) })}
                   style={{ flex: 1, fontFamily: 'monospace', fontSize: '14px', width: '100%' }}
@@ -610,7 +639,7 @@ function App() {
                   }}
                   onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
-                  title="Reset to Random"
+                  title={t('parameters.resetRandom')}
                 >
                   <span style={{ color: 'white' }}>RND</span>
                 </button>
@@ -669,7 +698,7 @@ function App() {
               backgroundColor: loading ? '#eab308' : '#22c55e',
               boxShadow: loading ? '0 0 8px rgba(234, 179, 8, 0.5)' : '0 0 8px rgba(34, 197, 94, 0.5)'
             }}></div>
-            <span>{loading ? 'Generating...' : 'System Ready'}</span>
+            <span>{loading ? t('systemStatus.generating') : t('systemStatus.systemReady')}</span>
           </div>
         </div>
       </div>
@@ -694,7 +723,7 @@ function App() {
           backgroundColor: 'var(--bg-secondary)'
         }}>
           <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>
-            Workspace / <span style={{ color: 'white' }}>New Generation</span>
+            {t('app.workspace')} / <span style={{ color: 'white' }}>{t('app.newGeneration')}</span>
           </div>
         </div>
 
@@ -751,7 +780,7 @@ function App() {
                     boxShadow: 'var(--shadow-lg)',
                     transition: 'transform 0.2s'
                   }}
-                  title="Download"
+                  title={t('image.download')}
                   onClick={() => {
                     const link = document.createElement('a')
                     link.href = image
@@ -773,7 +802,7 @@ function App() {
                     backdropFilter: 'blur(8px)',
                     transition: 'all 0.2s'
                   }}
-                  title="View Fullscreen"
+                  title={t('image.fullscreen')}
                   onClick={() => window.open(image, '_blank')}
                   onMouseEnter={e => {
                     e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'
@@ -811,7 +840,7 @@ function App() {
                 <ImageIcon size={64} strokeWidth={1} />
               </div>
               <p style={{ fontSize: '18px', fontWeight: 300, letterSpacing: '0.5px' }}>
-                Enter a prompt to begin creation
+                {t('image.placeholder')}
               </p>
             </div>
           )}
@@ -839,7 +868,7 @@ function App() {
                   lineHeight: 1.5,
                   transition: 'all 0.2s'
                 }}
-                placeholder="Describe your imagination..."
+                placeholder={t('prompt.placeholder')}
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
                 onFocus={e => {
@@ -877,7 +906,7 @@ function App() {
                     }}
                     onMouseEnter={e => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = 'var(--border)')}
                     onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                    title="Regenerate with same settings"
+                    title={t('image.regenerate')}
                   >
                     <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                   </button>
@@ -910,7 +939,7 @@ function App() {
                   }}
                 >
                   {loading ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} fill="black" />}
-                  <span>{loading ? 'Generating...' : 'Generate'}</span>
+                  <span>{loading ? t('prompt.generating') : t('prompt.generate')}</span>
                 </button>
               </div>
             </div>

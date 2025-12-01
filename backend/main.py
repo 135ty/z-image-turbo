@@ -134,14 +134,14 @@ async def load_pipeline():
     print(f"Loading model {model_id}...")
     
     # Send loading notification
-    await send_notification(NOTIFICATION_INFO, f"开始加载模型 {model_id}...", persistent=False)
+    await send_notification(NOTIFICATION_INFO, f"Loading model {model_id}...", persistent=False)
     
     model_subdir = get_model_directory()
     print(f"Using model directory: {model_subdir}")
     
     # Check if model exists
     if not model_subdir.exists():
-        await send_notification(NOTIFICATION_INFO, "模型未找到，开始下载...", persistent=False)
+        await send_notification(NOTIFICATION_INFO, "Model not found, starting download...", persistent=False)
         download_model(model_id, model_subdir)
     
     try:
@@ -165,11 +165,11 @@ async def load_pipeline():
             
         print(f"Model loaded on {device}")
         # Send success notification (persistent)
-        await send_notification(NOTIFICATION_SUCCESS, f"模型加载成功！设备: {device}", persistent=True)
+        await send_notification(NOTIFICATION_SUCCESS, f"Model loaded successfully! Device: {device}", persistent=True)
     except Exception as e:
         print(f"Error loading model: {e}")
         # Send error notification (persistent)
-        await send_notification(NOTIFICATION_ERROR, f"模型加载失败: {str(e)}", persistent=True)
+        await send_notification(NOTIFICATION_ERROR, f"Model loading failed: {str(e)}", persistent=True)
         raise e
 
 async def get_pipeline():
