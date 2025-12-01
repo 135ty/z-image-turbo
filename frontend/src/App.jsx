@@ -28,7 +28,7 @@ function App() {
   const [image, setImage] = useState(null)
   const [loading, setLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [modelPath, setModelPath] = useState('')
+  // const [modelPath, setModelPath] = useState('') // 注释掉模型路径状态
   const [settings, setSettings] = useState({
     steps: 8,
     guidance_scale: 0.0,
@@ -41,17 +41,19 @@ function App() {
     message: t('modelStatus.ready'),
     device: null
   })
+  const [showImageModal, setShowImageModal] = useState(false)
+  const [modalImage, setModalImage] = useState(null)
   const ws = useRef(null)
 
-  // Fetch initial settings
-  useEffect(() => {
-    fetch('http://localhost:8000/settings')
-      .then(res => res.json())
-      .then(data => {
-        if (data.cache_dir) setModelPath(data.cache_dir)
-      })
-      .catch(err => console.error("Failed to fetch settings", err))
-  }, [])
+  // Fetch initial settings - 注释掉获取模型缓存目录的代码
+  // useEffect(() => {
+  //   fetch('http://localhost:8000/settings')
+  //     .then(res => res.json())
+  //     .then(data => {
+  //       if (data.cache_dir) setModelPath(data.cache_dir)
+  //     })
+  //     .catch(err => console.error("Failed to fetch settings", err))
+  // }, [])
 
   // WebSocket connection
   useEffect(() => {
@@ -126,23 +128,23 @@ function App() {
     }
   }
 
-  const saveSettings = async () => {
-    try {
-      const res = await fetch('http://localhost:8000/settings/model-path', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cache_dir: modelPath })
-      })
-      if (res.ok) {
-        setShowSettings(false)
-        showToast(t('settings.saveSuccess'), 'success')
-      } else {
-        throw new Error('Failed to save settings')
-      }
-    } catch (e) {
-      showToast(t('settings.saveError') + e.message, 'error')
-    }
-  }
+  // const saveSettings = async () => {
+  //   try {
+  //     const res = await fetch('http://localhost:8000/settings/model-path', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({ cache_dir: modelPath })
+  //     })
+  //     if (res.ok) {
+  //       setShowSettings(false)
+  //       showToast(t('settings.saveSuccess'), 'success')
+  //     } else {
+  //       throw new Error('Failed to save settings')
+  //     }
+  //   } catch (e) {
+  //     showToast(t('settings.saveError') + e.message, 'error')
+  //   }
+  // }
 
   // Toast notification functions
   const showToast = (message, type = 'info') => {
@@ -252,6 +254,7 @@ function App() {
               </button>
             </div>
             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* 注释掉模型缓存目录设置
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>
                   {t('settings.modelCacheDirectory')}
@@ -278,6 +281,7 @@ function App() {
                   {t('settings.modelCacheHelp')}
                 </p>
               </div>
+              */}
             </div>
             <div style={{
               padding: '16px 24px',
@@ -298,6 +302,7 @@ function App() {
               >
                 {t('settings.cancel')}
               </button>
+              {/* 注释掉保存按钮，因为模型缓存目录已禁用
               <button
                 onClick={saveSettings}
                 style={{
@@ -314,6 +319,7 @@ function App() {
               >
                 <Save size={16} /> {t('settings.saveChanges')}
               </button>
+              */}
             </div>
           </div>
         </div>
@@ -803,7 +809,10 @@ function App() {
                     transition: 'all 0.2s'
                   }}
                   title={t('image.fullscreen')}
-                  onClick={() => window.open(image, '_blank')}
+                  onClick={() => {
+                    setModalImage(image)
+                    setShowImageModal(true)
+                  }}
                   onMouseEnter={e => {
                     e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'
                     e.currentTarget.style.transform = 'scale(1.1)'
@@ -955,6 +964,59 @@ function App() {
         </div>
 
       </div>
+
+      {/* Image Modal */}
+      {showImageModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.9)',
+          backdropFilter: 'blur(4px)'
+        }} onClick={() => setShowImageModal(false)}>
+          <div style={{
+            position: 'relative',
+            maxWidth: '90%',
+            maxHeight: '90%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <button
+              onClick={() => setShowImageModal(false)}
+              style={{
+                position: 'absolute',
+                top: '-40px',
+                right: '0',
+                padding: '8px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                color: 'white',
+                borderRadius: '50%',
+                border: 'none',
+                cursor: 'pointer',
+                zIndex: 101
+              }}
+            >
+              <X size={24} />
+            </button>
+            {modalImage && (
+              <img
+                src={modalImage}
+                alt="Full size"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  borderRadius: '8px'
+                }}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       <style>{`
         .image-container:hover .image-overlay {
