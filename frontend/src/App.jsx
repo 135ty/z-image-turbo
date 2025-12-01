@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import toast, { Toaster } from 'react-hot-toast'
 import {
   Zap,
   Image as ImageIcon,
@@ -11,7 +12,11 @@ import {
   X,
   Sparkles,
   Save,
-  Github
+  Github,
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle,
+  Info
 } from 'lucide-react'
 import './App.css'
 
@@ -57,7 +62,7 @@ function App() {
       }
     } catch (e) {
       console.error(e)
-      alert('Error generating image. Check backend console.')
+      showToast('Error generating image. Check backend console.', 'error')
     } finally {
       setLoading(false)
     }
@@ -72,25 +77,81 @@ function App() {
       })
       if (res.ok) {
         setShowSettings(false)
-        alert('Settings saved. Model will reload on next generation.')
+        showToast('Settings saved. Model will reload on next generation.', 'success')
       } else {
         throw new Error('Failed to save settings')
       }
     } catch (e) {
-      alert('Error saving settings: ' + e.message)
+      showToast('Error saving settings: ' + e.message, 'error')
+    }
+  }
+
+  // Toast notification functions
+  const showToast = (message, type = 'info') => {
+    const options = {
+      style: {
+        background: 'var(--bg-secondary)',
+        color: 'var(--text-primary)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-lg)',
+        borderRadius: 'var(--radius-sm)',
+        padding: '16px',
+        fontSize: '14px'
+      },
+      iconTheme: {
+        primary: 'white',
+        secondary: 'var(--bg-secondary)'
+      }
+    }
+
+    switch (type) {
+      case 'success':
+        return toast.success(message, {
+          ...options,
+          icon: <CheckCircle size={20} color="#22c55e" />
+        })
+      case 'error':
+        return toast.error(message, {
+          ...options,
+          icon: <AlertCircle size={20} color="#ef4444" />
+        })
+      case 'warning':
+        return toast(message, {
+          ...options,
+          icon: <AlertTriangle size={20} color="#eab308" />
+        })
+      case 'info':
+      default:
+        return toast(message, {
+          ...options,
+          icon: <Info size={20} color="#3b82f6" />
+        })
     }
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      height: '100vh',
-      width: '100vw',
-      backgroundColor: 'var(--bg-primary)',
-      color: 'var(--text-primary)',
-      overflow: 'hidden',
-      fontFamily: 'var(--font-sans)'
-    }}>
+    <>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          success: {
+            duration: 3000
+          },
+          error: {
+            duration: 5000
+          }
+        }}
+      />
+      <div style={{
+        display: 'flex',
+        height: '100vh',
+        width: '100vw',
+        backgroundColor: 'var(--bg-primary)',
+        color: 'var(--text-primary)',
+        overflow: 'hidden',
+        fontFamily: 'var(--font-sans)'
+      }}>
 
       {/* Settings Modal */}
       {showSettings && (
@@ -772,7 +833,8 @@ function App() {
           opacity: 1 !important;
         }
       `}</style>
-    </div>
+      </div>
+    </>
   )
 }
 
