@@ -871,6 +871,14 @@ function App() {
                 placeholder={t('prompt.placeholder')}
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    if (!loading && prompt) {
+                      generate()
+                    }
+                  }
+                }}
                 onFocus={e => {
                   e.currentTarget.style.borderColor = 'var(--border-light)'
                   e.currentTarget.style.backgroundColor = 'var(--bg-primary)'
