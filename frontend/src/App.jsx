@@ -28,6 +28,8 @@ function App() {
   const [image, setImage] = useState(null)
   const [loading, setLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [modelLoaded, setModelLoaded] = useState(false)
+  const [modelLoading, setModelLoading] = useState(false)
   // const [modelPath, setModelPath] = useState('') // 注释掉模型路径状态
   const [settings, setSettings] = useState({
     steps: 8,
@@ -35,11 +37,6 @@ function App() {
     width: 1024,
     height: 1024,
     seed: -1
-  })
-  const [modelStatus, setModelStatus] = useState({
-    status: 'ready', // ready, loading, success, error
-    message: t('modelStatus.ready'),
-    device: null
   })
   const [showImageModal, setShowImageModal] = useState(false)
   const [modalImage, setModalImage] = useState(null)
@@ -66,25 +63,24 @@ function App() {
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data)
       if (data.type === 'notification') {
+        // Show model status as toast notification
         if (data.notification_type === 'info') {
-          setModelStatus({
-            status: 'loading',
-            message: data.message,
-            device: null
-          })
+          showToast(data.message, 'info')
         } else if (data.notification_type === 'success') {
-          const deviceMatch = data.message.match(/设备: (\w+)/)
-          setModelStatus({
-            status: 'success',
-            message: t('modelStatus.success'),
-            device: deviceMatch ? deviceMatch[1] : null
-          })
+          // Model loaded successfully
+          if (data.message.includes('Model loaded successfully')) {
+            setModelLoaded(true)
+            setModelLoading(false)
+            // Show longer duration for model loading success
+            showToast(data.message, 'success', 8000) // 8 seconds
+          } else {
+            showToast(data.message, 'success')
+          }
         } else if (data.notification_type === 'error') {
-          setModelStatus({
-            status: 'error',
-            message: data.message,
-            device: null
-          })
+          setModelLoading(false)
+          showToast(data.message, 'error')
+        } else if (data.notification_type === 'warning') {
+          showToast(data.message, 'warning')
         }
       }
     }
@@ -104,8 +100,55 @@ function App() {
     }
   }, [])
 
+  const loadModel = async () => {
+    if (modelLoading || modelLoaded) return
+    
+    setModelLoading(true)
+    try {
+      // Trigger model loading by making a generation request with empty prompt
+      // This will cause the backend to load the model
+      const res = await fetch('http://localhost:8000/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: '', ...settings })
+      })
+      
+      if (!res.ok) {
+        throw new Error('Model loading failed')
+      }
+      
+      // The actual loading will be handled by the WebSocket notifications
+    } catch (e) {
+      console.error(e)
+      setModelLoading(false)
+      showToast(t('model.loadingError', 'Error loading model. Check backend console.'), 'error')
+    }
+  }
+
   const generate = async () => {
     if (!prompt) return
+    
+    // If model is not loaded and not currently loading, load it first
+    if (!modelLoaded && !modelLoading) {
+      await loadModel()
+      // Wait a bit for model to start loading
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+    
+    // If model is still loading, wait for it to complete
+    if (modelLoading) {
+      showToast(t('model.waitingForLoad', 'Waiting for model to load...'), 'info')
+      // Wait for model to be loaded
+      await new Promise(resolve => {
+        const checkInterval = setInterval(() => {
+          if (modelLoaded || !modelLoading) {
+            clearInterval(checkInterval)
+            resolve()
+          }
+        }, 500)
+      })
+    }
+    
     setLoading(true)
     try {
       const res = await fetch('http://localhost:8000/generate', {
@@ -147,7 +190,7 @@ function App() {
   // }
 
   // Toast notification functions
-  const showToast = (message, type = 'info') => {
+  const showToast = (message, type = 'info', duration = null) => {
     const options = {
       style: {
         background: 'var(--bg-secondary)',
@@ -161,7 +204,8 @@ function App() {
       iconTheme: {
         primary: 'white',
         secondary: 'var(--bg-secondary)'
-      }
+      },
+      duration: duration || undefined
     }
 
     switch (type) {
@@ -654,41 +698,6 @@ function App() {
           </div>
         </div>
 
-        {/* Model Status */}
-        <div style={{
-          padding: '16px 24px',
-          borderTop: '1px solid var(--border)',
-          backgroundColor: 'var(--bg-tertiary)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-            <div style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: modelStatus.status === 'loading' ? '#eab308' :
-                              modelStatus.status === 'success' ? '#22c55e' :
-                              modelStatus.status === 'error' ? '#ef4444' : '#22c55e',
-              boxShadow: modelStatus.status === 'loading' ? '0 0 8px rgba(234, 179, 8, 0.5)' :
-                        modelStatus.status === 'success' ? '0 0 8px rgba(34, 197, 94, 0.5)' :
-                        modelStatus.status === 'error' ? '0 0 8px rgba(239, 68, 68, 0.5)' :
-                        '0 0 8px rgba(34, 197, 94, 0.5)',
-              animation: modelStatus.status === 'loading' ? 'pulse 1.5s infinite' : 'none'
-            }}></div>
-            <span style={{
-              color: modelStatus.status === 'error' ? '#ef4444' : 'var(--text-secondary)'
-            }}>
-              {modelStatus.message}
-            </span>
-            {modelStatus.device && (
-              <span style={{
-                color: 'var(--text-muted)',
-                fontFamily: 'monospace'
-              }}>
-                ({modelStatus.device})
-              </span>
-            )}
-          </div>
-        </div>
 
         {/* Sidebar Footer */}
         <div style={{
@@ -696,15 +705,72 @@ function App() {
           borderTop: '1px solid var(--border)',
           backgroundColor: 'var(--bg-tertiary)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-            <div style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: loading ? '#eab308' : '#22c55e',
-              boxShadow: loading ? '0 0 8px rgba(234, 179, 8, 0.5)' : '0 0 8px rgba(34, 197, 94, 0.5)'
-            }}></div>
-            <span>{loading ? t('systemStatus.generating') : t('systemStatus.systemReady')}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Load Model Button */}
+            {!modelLoaded && (
+              <button
+                onClick={loadModel}
+                disabled={modelLoading}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: modelLoading ? 'var(--bg-secondary)' : '#3b82f6',
+                  color: 'white',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s',
+                  cursor: modelLoading ? 'not-allowed' : 'pointer',
+                  opacity: modelLoading ? 0.7 : 1
+                }}
+                onMouseEnter={e => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = '#2563eb'
+                    e.currentTarget.style.transform = 'translateY(-1px)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = '#3b82f6'
+                    e.currentTarget.style.transform = 'translateY(0)'
+                  }
+                }}
+              >
+                {modelLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>{t('model.loading', 'Loading Model...')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap size={16} />
+                    <span>{t('model.load', 'Load Model')}</span>
+                  </>
+                )}
+              </button>
+            )}
+            
+            {/* System Status */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: modelLoading ? '#eab308' : modelLoaded ? '#22c55e' : '#6b7280',
+                boxShadow: modelLoading ? '0 0 8px rgba(234, 179, 8, 0.5)' :
+                          modelLoaded ? '0 0 8px rgba(34, 197, 94, 0.5)' : 'none'
+              }}></div>
+              <span>
+                {modelLoading ? t('systemStatus.modelLoading', 'Model Loading...') :
+                 modelLoaded ? t('systemStatus.modelReady', 'Model Ready') :
+                 t('systemStatus.modelNotLoaded', 'Model Not Loaded')}
+              </span>
+            </div>
           </div>
         </div>
       </div>

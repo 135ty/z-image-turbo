@@ -173,12 +173,11 @@ async def load_pipeline():
         raise e
 
 async def get_pipeline():
-    """Get model pipeline (pre-loaded at startup)"""
+    """Get model pipeline (lazy loading on first request)"""
     global pipe
-    # Model is now pre-loaded at startup, this function just returns the pipeline
-    # Original lazy loading code commented out for reference:
-    # if pipe is None:
-    #     await load_pipeline()
+    # Model is now loaded lazily on first request
+    if pipe is None:
+        await load_pipeline()
     return pipe
 
 def unload_pipeline():
@@ -286,6 +285,27 @@ def handle_health_check():
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time notifications"""
     await manager.connect(websocket)
+    
+    # Send current model status when client connects
+    global pipe
+    if pipe is not None:
+        # Model is loaded
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        await manager.send_personal_message({
+            "type": "notification",
+            "notification_type": NOTIFICATION_SUCCESS,
+            "message": f"Model loaded successfully! Device: {device}",
+            "persistent": False
+        }, websocket)
+    else:
+        # Model is not loaded
+        await manager.send_personal_message({
+            "type": "notification",
+            "notification_type": NOTIFICATION_INFO,
+            "message": "Model is not loaded. It will be loaded on first generation request.",
+            "persistent": False
+        }, websocket)
+    
     try:
         while True:
             # Keep connection alive
@@ -339,14 +359,9 @@ def main():
     
     args = parser.parse_args()
     
-    # Load model at startup
-    print("Pre-loading model at startup...")
-    try:
-        asyncio.run(load_pipeline())
-        print("Model loaded successfully at startup")
-    except Exception as e:
-        print(f"Failed to load model at startup: {e}")
-        print("Server will continue to run but model loading will be attempted on first request")
+    # Model is no longer pre-loaded at startup
+    print("Server starting without pre-loading model...")
+    print("Model will be loaded on first generation request or when manually triggered")
     
     # Create application
     app = create_app()
