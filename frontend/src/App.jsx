@@ -54,7 +54,7 @@ function App() {
 
   // WebSocket connection
   useEffect(() => {
-    ws.current = new WebSocket('ws://localhost:8000/ws')
+    ws.current = new WebSocket('ws://localhost:18000/ws')
     
     ws.current.onopen = () => {
       console.log('WebSocket connected')
@@ -107,7 +107,7 @@ function App() {
     try {
       // Trigger model loading by making a generation request with empty prompt
       // This will cause the backend to load the model
-      const res = await fetch('http://localhost:8000/generate', {
+      const res = await fetch('http://localhost:18000/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: '', ...settings })
@@ -151,7 +151,7 @@ function App() {
     
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:8000/generate', {
+      const res = await fetch('http://localhost:18000/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, ...settings })
